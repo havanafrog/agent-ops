@@ -1,0 +1,15 @@
+{
+  "name": "agent-ops",
+  "owner": {
+    "name": "havanafrog",
+    "url": "https://github.com/havanafrog"
+  },
+  "plugins": [
+    {
+      "name": "agent-ops",
+      "source": "./",
+      "description": "만드는 쪽과 재는 쪽을 갈라 놓는 ops. 장부 · 넘김 훅 · 창 판."
+    }
+  ],
+  "description": "만드는 쪽과 재는 쪽을 갈라 놓는 Claude Code ops 도구."
+}

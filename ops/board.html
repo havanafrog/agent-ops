@@ -1,0 +1,340 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ops</title>
+<style>
+  :root {
+    --page: #f4f5f8; --surface: #fbfcfd;
+    --text: #191f28; --sub: #4e5968; --faint: #8b95a1;
+    --hair: #e5e8eb; --ring: inset 0 0 0 1px rgba(2,32,71,.05);
+    --live: #f04452; --calm: #3182f6; --warn: #f5a623; --good: #15c26b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: #17171c; --surface: #1f2027;
+      --text: #e9ecef; --sub: #adb5bd; --faint: #6b7280;
+      --hair: #2b2d36; --ring: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text);
+    font: 14px/1.5 -apple-system, "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  .bar { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 2px 14px; }
+  h1 { font-size: 15px; margin: 0; letter-spacing: -.01em; }
+  .tally { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .tally b { color: var(--text); font-weight: 650; }
+  .tally .hot { color: var(--live); }
+  .tally .cool { color: var(--warn); }
+  .repo { margin-left: auto; font-size: 12px; color: var(--faint);
+          font-variant-numeric: tabular-nums; }
+
+  /* 탭 — 창과 장부를 가른다. 넘길 것 알림은 탭 위에 있어서 어느 탭에서도 보인다. */
+  .tabs { display: flex; gap: 4px; margin: 0 0 14px; border-bottom: 1px solid var(--hair); }
+  .tab { appearance: none; background: none; border: 0; cursor: pointer;
+         font: inherit; font-size: 13px; font-weight: 650; color: var(--faint);
+         padding: 8px 14px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab:hover { color: var(--sub); }
+  .tab.on { color: var(--text); border-bottom-color: var(--calm); }
+  .tab .n { font-weight: 500; font-variant-numeric: tabular-nums; opacity: .65; }
+  .pane[hidden] { display: none; }
+
+  /* 창 — 하나가 카드 하나. 눌러서 앞으로 가져오거나 되살린다. */
+  .cards { display: grid; gap: 12px; align-items: start;
+           grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr)); }
+  .win { background: var(--surface); box-shadow: var(--ring); border-radius: 16px;
+         padding: 16px 18px 14px; display: grid; gap: 10px; }
+  .win.pick { cursor: pointer; }
+  .win.pick:hover { box-shadow: inset 0 0 0 1.5px var(--calm); }
+  .win.live { box-shadow: inset 0 0 0 1.5px var(--live); }
+  .win.live.pick:hover { box-shadow: inset 0 0 0 2px var(--live); }
+
+  .wt { display: flex; align-items: baseline; gap: 10px; }
+  /* min-width:0 이 없으면 flex 안에서 줄임표가 안 먹고 이름이 카드를 뚫고 나간다. */
+  .wn { font-weight: 700; font-size: 19px; letter-spacing: -.02em;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .ws { margin-left: auto; font-size: 11.5px; color: var(--faint); white-space: nowrap;
+        font-variant-numeric: tabular-nums; flex: none; }
+  .ws.on { color: var(--live); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--live);
+         display: inline-block; animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .2 } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none } }
+
+  .say { font-size: 13.5px; color: var(--text); overflow: hidden;
+         text-overflow: ellipsis; white-space: nowrap; }
+  .say i { color: var(--faint); font-style: normal; font-size: 12px; margin-right: 6px; }
+  .say.empty { color: var(--faint); font-size: 12.5px; }
+
+  /* 흐름 — 최근 다섯 수를 시간순으로. 세 칸이라 눈이 세로로 흐른다. */
+  .flow { display: grid; grid-template-columns: auto auto minmax(0, 1fr);
+          gap: 2px 10px; align-items: baseline;
+          border-top: 1px solid var(--hair); padding-top: 10px; }
+  .fw { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums;
+        white-space: nowrap; }
+  .ft { font-size: 11.5px; font-weight: 650; color: var(--calm); white-space: nowrap; }
+  .ft.talk { color: var(--faint); font-weight: 500; }
+  .fx { font-size: 12px; color: var(--sub); overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; }
+  .flow .now .fw, .flow .now .fx { color: var(--text); }
+
+  .foot { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .none { color: var(--faint); font-size: 12.5px; padding: 2px 2px 0; }
+
+  /* 열린 창 — 기록이 아니라 등록부다. 이 저장소 밖의 창도 여기서는 보인다. */
+  .lv { display: grid; gap: 12px; align-items: baseline;
+        grid-template-columns: 8px minmax(0, 1.1fr) minmax(0, 1fr) auto;
+        padding: 9px 12px; border-bottom: 1px solid var(--hair); }
+  .lv:last-child { border-bottom: 0; }
+  .lv.pick { cursor: pointer; }
+  .lv.pick:hover { background: var(--page); }
+  .lv.old { opacity: .45; }
+  .st { width: 8px; height: 8px; border-radius: 50%; background: var(--hair); }
+  .st.busy { background: var(--live); }
+  .st.idle { background: var(--good); }
+  .ln { font-weight: 650; font-size: 13px; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; }
+  .ln.noname { font-weight: 500; color: var(--faint); }
+  .ln .me { font-weight: 500; font-size: 11px; color: var(--calm); margin-left: 6px; }
+  .lp { font-size: 12px; color: var(--sub); overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; }
+  .lm { font-size: 11px; color: var(--faint); white-space: nowrap;
+        font-variant-numeric: tabular-nums; }
+
+  /* 장부 */
+  .card { background: var(--surface); box-shadow: var(--ring); border-radius: 14px;
+          padding: 6px 4px; }
+  .row { display: flex; gap: 10px; align-items: baseline; padding: 7px 12px;
+         border-bottom: 1px solid var(--hair); }
+  .row:last-child { border-bottom: 0; }
+  .rid { font-weight: 650; font-size: 12px; width: 34px; flex: none;
+         font-variant-numeric: tabular-nums; }
+  .tag { font-size: 11px; font-weight: 650; flex: none; width: 46px; }
+  .tag.claim { color: var(--calm); }
+  .tag.ok    { color: var(--good); }
+  .tag.no    { color: var(--live); }
+  .tag.hold  { color: var(--warn); }
+  .tag.note  { color: var(--faint); }
+  .what { font-size: 12.5px; color: var(--sub); overflow: hidden;
+          text-overflow: ellipsis; white-space: nowrap; }
+  .when { margin-left: auto; font-size: 11px; color: var(--faint); flex: none;
+          font-variant-numeric: tabular-nums; }
+
+  .warn-strip { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--warn);
+                border-radius: 12px; padding: 9px 14px; margin-bottom: 12px;
+                font-size: 12.5px; color: var(--text); }
+</style>
+
+<div class="wrap">
+  <div class="bar">
+    <h1>ops</h1>
+    <span class="tally" id="tally">불러오는 중…</span>
+    <span class="repo" id="repo"></span>
+  </div>
+
+  <!-- 넘길 것은 탭 위에 둔다. 장부 탭에 숨기면 보라고 만든 걸 못 본다. -->
+  <div id="handoff"></div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab on" role="tab" data-pane="pane-wins">창 <span class="n" id="n-wins"></span></button>
+    <button class="tab" role="tab" data-pane="pane-live">열린 창 <span class="n" id="n-live"></span></button>
+    <button class="tab" role="tab" data-pane="pane-ledger">장부 <span class="n" id="n-ledger"></span></button>
+  </div>
+
+  <div class="pane" id="pane-wins"><div class="cards" id="wins"></div></div>
+  <div class="pane" id="pane-live" hidden><div class="card" id="live"></div></div>
+  <div class="pane" id="pane-ledger" hidden><div class="card" id="ledger"></div></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+// 따옴표까지 막는다 — 창 이름이 data-name 속성 안에 들어간다.
+const esc = s => String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const cut = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+
+// 몇 초 · 몇 분 · 몇 시간. 그 위로는 날짜를 세도 못 읽는다.
+function ago(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 5) return '방금';
+  if (s < 60) return s + '초 전';
+  const m = Math.round(s / 60);
+  if (m < 60) return m + '분 전';
+  const h = Math.round(m / 60);
+  return h < 24 ? h + '시간 전' : Math.round(h / 24) + '일 전';
+}
+
+// ── 탭 ───────────────────────────────────────────────────────
+// 고른 탭은 남긴다. 2초마다 다시 그리므로 안 남기면 갱신마다 창 탭으로 튄다.
+const TABKEY = 'ops.tab';
+function pick(id) {
+  for (const b of document.querySelectorAll('.tab')) {
+    const on = b.dataset.pane === id;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', String(on));
+    $(b.dataset.pane).hidden = !on;
+  }
+  try { localStorage.setItem(TABKEY, id); } catch { /* 사생활 창이면 못 적는다 */ }
+}
+for (const b of document.querySelectorAll('.tab')) {
+  b.addEventListener('click', () => pick(b.dataset.pane));
+}
+try {
+  const saved = localStorage.getItem(TABKEY);
+  if (saved && $(saved)) pick(saved);
+} catch { /* 없으면 창 탭 그대로 */ }
+
+// ── 창 ───────────────────────────────────────────────────────
+// 창을 앞으로 가져오는 일은 판이 못 한다 — 판은 통 안에 있다. 브라우저는 호스트에
+// 있으므로 호스트에서 도는 도우미(ops/focus.mjs)를 화면이 직접 부른다.
+const GO = 'http://127.0.0.1:8731/go';
+// 누르고 나온 말은 붙들어 둔다. 안 그러면 2초 뒤 갱신이 덮어써서 못 읽는다 —
+// 도우미가 죽은 걸 이것 때문에 못 봤다.
+let held = 0;
+function say(t) { $('tally').textContent = t; held = Date.now() + 6000; }
+
+// 한 수. 도구면 도구 이름을, 글이면 "답" 이라고 적는다.
+function step(s, now, last) {
+  const at = Date.parse(s.at);
+  const when = Number.isFinite(at) ? ago(now - at) : '';
+  const what = s.kind === 'tool'
+    ? esc(s.tool.replace(/^mcp__[a-z-]+__/, ''))
+    : '답';
+  return `<div class="fw ${last ? 'now' : ''}">${esc(when)}</div>`
+    + `<div class="ft ${s.kind === 'tool' ? '' : 'talk'}">${what}</div>`
+    + `<div class="fx">${esc(cut(s.text || '', 90))}</div>`;
+}
+
+function winCard(x, now) {
+  // 어느 카드든 누를 수 있다. 도우미가 먼저 창을 찾아 앞으로 가져오고,
+  // 못 찾으면 — 창이 꺼진 것이다 — 그 자리에서 되살린다.
+  const live = x.titled && x.name;   // 이름이 있어야 창을 제목으로 찾는다
+  const steps = x.steps ?? [];
+  return `<div class="win ${x.moving ? 'live' : ''} pick"`
+    + ` data-id="${esc(x.id)}" data-name="${esc(live ? x.name : '')}"`
+    + ` title="${live ? '누르면 그 창이 앞으로' : '꺼진 창 — 누르면 되살립니다'}"`
+    + `><div class="wt"><span class="wn">${esc(x.name || x.id.slice(0, 8))}</span>`
+    + `<span class="ws ${x.moving ? 'on' : ''}">`
+    + (x.moving ? '<span class="dot"></span> 도는 중' : ago(x.idleMs)) + '</span></div>'
+    + (x.asked
+        ? `<div class="say"><i>방금</i>${esc(cut(x.asked, 70))}</div>`
+        : '<div class="say empty">시킨 말 없음</div>')
+    + (steps.length
+        ? `<div class="flow">${steps.map((s, i) => step(s, now, i === steps.length - 1)).join('')}</div>`
+        : '')
+    + (x.branch ? `<div class="foot">${esc(x.branch)}</div>` : '')
+    + '</div>';
+}
+
+// ── 열린 창 ──────────────────────────────────────────────────
+// 여기는 기록이 아니라 등록부다. 창이 닫히면 클로드가 그 파일을 지우므로 남은 것이
+// 곧 열린 창이고, 이 저장소 밖의 창도 같이 보인다.
+const STALE_MS = 10 * 60 * 1000;   // 이만큼 기척이 없으면 유령일 수 있다
+
+const since = ms => { const t = ago(ms); return t === '방금' ? '방금 열림' : t.replace(' 전', '째'); };
+
+function liveRow(w, now) {
+  const stale = now - w.updatedAt > STALE_MS;
+  const up = w.startedAt ? since(now - w.startedAt) : '';
+  return `<div class="lv ${stale ? 'old' : ''} ${w.name ? 'pick' : ''}"`
+    + ` data-id="${esc(w.id)}" data-name="${esc(w.name ?? '')}"`
+    + ` title="${w.name ? '누르면 그 창이 앞으로' : '이름이 없어 창을 못 찾습니다 — /name 으로 붙이세요'}">`
+    + `<span class="st ${esc(w.status ?? '')}"></span>`
+    + `<span class="ln ${w.named ? '' : 'noname'}">${esc(w.name ?? w.id.slice(0, 8))}`
+    + (w.here ? '<span class="me">여기</span>' : '') + '</span>'
+    + `<span class="lp">${esc(w.project ?? '')}</span>`
+    + `<span class="lm">pid ${esc(w.pid ?? '?')}${up ? ' · ' + esc(up) : ''}`
+    + (stale ? ' · 기척 없음' : '') + '</span></div>';
+}
+
+// ── 장부 ─────────────────────────────────────────────────────
+// 장부 줄에는 어느 창이 올렸는지가 없다. 만드는 쪽·재는 쪽만 적힌다 —
+// 그래서 창 카드에 붙이지 않고 탭을 따로 뺐다. 없는 짝을 지어내면 안 된다.
+const TAG = { 확인: ['ok', '확인'], 반박: ['no', '반박'], 보류: ['hold', '보류'] };
+
+function ledgerRow(r, now) {
+  const [cls, label] = r.kind === 'claim' ? ['claim', '주장']
+    : r.kind === 'verdict' ? (TAG[r.v] ?? ['hold', r.v ?? '판정'])
+    : ['note', '메모'];
+  const what = r.what ?? r.note ?? r.text ?? '';
+  const who = r.by === 'builder' ? '만드는 쪽' : r.by === 'verifier' ? '재는 쪽' : (r.by ?? '');
+  const at = Date.parse(r.at);
+  return `<div class="row"><span class="rid">${esc(r.id ?? '')}</span>`
+    + `<span class="tag ${cls}">${esc(label)}</span>`
+    + `<span class="what">${esc(what)}</span>`
+    + `<span class="when">${esc(who)} · ${Number.isFinite(at) ? ago(now - at) : ''}</span></div>`;
+}
+
+function draw(d) {
+  const now = Date.now();
+  const { sessions, live, repo, open, recent, counts, handoff } = d;
+
+  $('wins').innerHTML = sessions.length
+    ? sessions.map(x => winCard(x, now)).join('')
+    : '<div class="none">도는 창이 없습니다</div>';
+
+  $('ledger').innerHTML = recent.length
+    ? recent.map(r => ledgerRow(r, now)).join('')
+    : '<div class="none" style="padding:10px 12px">장부가 비어 있습니다</div>';
+
+  $('live').innerHTML = (live ?? []).length
+    ? live.map(w => liveRow(w, now)).join('')
+    : '<div class="none" style="padding:10px 12px">열린 창이 없습니다</div>';
+
+  $('n-wins').textContent = sessions.length || '';
+  $('n-live').textContent = (live ?? []).length || '';
+  $('n-ledger').textContent = recent.length || '';
+
+  const stuck = open.filter(x => x.stuck).length;
+  const pending = handoff?.pending ? 1 : 0;
+  // 방금 누르고 나온 말은 덮지 않는다. 나머지 칸은 그대로 갱신한다.
+  if (Date.now() >= held) {
+    $('tally').innerHTML = `열림 <b>${open.length}</b> · 닫힘 <b>${counts.closed}</b>`
+      + (stuck ? ` · <span class="hot">사람 차례 ${stuck}</span>` : '')
+      + (pending ? ' · <span class="cool">넘길 것 1</span>' : '');
+  }
+
+  $('repo').textContent = repo
+    ? `${repo.branch}${repo.dirty.length ? ' · 안 올린 파일 ' + repo.dirty.length : ' · 깨끗함'}`
+    : '';
+
+  // 넘길 게 남았으면 그것부터 말한다. Stop 훅이 막는 것과 같은 값이다.
+  const h = handoff?.row;   // state() 는 row 로 준다 — CLI 만 last 로 바꿔 찍는다
+  $('handoff').innerHTML = pending && h
+    ? `<div class="warn-strip">넘길 게 남았습니다 — <b>${esc(h.id)}</b> `
+      + `${h.kind === 'claim' ? '주장' : '판정'}을 ${h.by === 'builder' ? '재는' : '만드는'} 쪽에 알리세요.</div>`
+    : '';
+}
+
+const SAID = { opened: '꺼진 창을 새로 띄웠습니다', badid: '세션 아이디가 이상합니다',
+               notfound: '창도 못 찾고 되살리지도 못했습니다' };
+
+async function go(e) {
+  const g = e.target.closest('.pick');
+  if (!g) return;
+  const q = new URLSearchParams({ name: g.dataset.name || '', id: g.dataset.id || '' });
+  try {
+    const r = await fetch(GO + '?' + q);
+    const { result } = await r.json();
+    if (result !== 'ok') say(SAID[result] ?? ('안 됐습니다 — ' + result));
+  } catch {
+    say('창 도우미가 없습니다 — node ops/focus.mjs');
+  }
+}
+$('wins').addEventListener('click', go);
+$('live').addEventListener('click', go);
+
+let stale = 0;
+async function tick() {
+  try {
+    draw(await (await fetch('/api/board')).json());
+    stale = 0;
+  } catch {
+    // 서버가 잠깐 없어도 화면은 남긴다. 계속 못 받으면 그때 말한다.
+    if (++stale > 3) $('tally').textContent = '서버가 안 보입니다';
+  }
+}
+tick();
+setInterval(tick, 2000);
+</script>
