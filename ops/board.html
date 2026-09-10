@@ -80,7 +80,9 @@
         text-overflow: ellipsis; white-space: nowrap; }
   .flow .now .fw, .flow .now .fx { color: var(--text); }
 
-  .foot { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .foot { display: flex; gap: 10px; align-items: baseline; font-size: 11.5px;
+          color: var(--faint); font-variant-numeric: tabular-nums; }
+  .usd { margin-left: auto; font-weight: 650; color: var(--sub); }
   .none { color: var(--faint); font-size: 12.5px; padding: 2px 2px 0; }
 
   /* 열린 창 — 기록이 아니라 등록부다. 이 저장소 밖의 창도 여기서는 보인다. */
@@ -154,6 +156,16 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const cut = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
 
+// 토큰은 수천만까지 간다. 자릿수를 다 적으면 못 읽는다.
+function short(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M';
+  if (n >= 1e3) return Math.round(n / 1e3) + 'K';
+  return String(n ?? 0);
+}
+// 캐시 읽기가 압도적이라 따로 적는다. 셋을 합치면 무슨 일이 있었는지 안 보인다.
+const toks = c => `입출력 ${short(c.in + c.out)} · 캐시 ${short(c.cacheRead + c.cacheWrite)}`;
+const money = u => (u >= 100 ? '$' + Math.round(u) : '$' + u.toFixed(2));
+
 // 몇 초 · 몇 분 · 몇 시간. 그 위로는 날짜를 세도 못 읽는다.
 function ago(ms) {
   const s = Math.round(ms / 1000);
@@ -188,7 +200,7 @@ try {
 // ── 창 ───────────────────────────────────────────────────────
 // 창을 앞으로 가져오는 일은 판이 못 한다 — 판은 통 안에 있다. 브라우저는 호스트에
 // 있으므로 호스트에서 도는 도우미(ops/focus.mjs)를 화면이 직접 부른다.
-const GO = 'http://127.0.0.1:8731/go';
+const GO = 'http://127.0.0.1:8732/go';
 // 누르고 나온 말은 붙들어 둔다. 안 그러면 2초 뒤 갱신이 덮어써서 못 읽는다 —
 // 도우미가 죽은 걸 이것 때문에 못 봤다.
 let held = 0;
@@ -223,8 +235,9 @@ function winCard(x, now) {
     + (steps.length
         ? `<div class="flow">${steps.map((s, i) => step(s, now, i === steps.length - 1)).join('')}</div>`
         : '')
-    + (x.branch ? `<div class="foot">${esc(x.branch)}</div>` : '')
-    + '</div>';
+    + `<div class="foot"><span>${esc(x.branch ?? '')}</span>`
+    + (x.cost ? `<span>${toks(x.cost)}</span><span class="usd">${money(x.cost.usd)}</span>` : '')
+    + '</div></div>';
 }
 
 // ── 열린 창 ──────────────────────────────────────────────────
@@ -268,7 +281,7 @@ function ledgerRow(r, now) {
 
 function draw(d) {
   const now = Date.now();
-  const { sessions, live, repo, open, recent, counts, handoff } = d;
+  const { sessions, live, spend, repo, open, recent, counts, handoff } = d;
 
   $('wins').innerHTML = sessions.length
     ? sessions.map(x => winCard(x, now)).join('')
@@ -292,7 +305,8 @@ function draw(d) {
   if (Date.now() >= held) {
     $('tally').innerHTML = `열림 <b>${open.length}</b> · 닫힘 <b>${counts.closed}</b>`
       + (stuck ? ` · <span class="hot">사람 차례 ${stuck}</span>` : '')
-      + (pending ? ' · <span class="cool">넘길 것 1</span>' : '');
+      + (pending ? ' · <span class="cool">넘길 것 1</span>' : '')
+      + (spend ? ` · <b>${money(spend)}</b>` : '');
   }
 
   $('repo').textContent = repo

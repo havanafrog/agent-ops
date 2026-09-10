@@ -21,6 +21,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { read as readLedger, open as openClaims } from './ledger.mjs';
 import { repo } from './repo.mjs';
 import { state as handoffState } from './handoff.mjs';
+import { tally } from './cost.mjs';
 import { STATE, WORK } from './home.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -30,7 +31,6 @@ export function projectSlug(cwd) {
   return cwd.replace(/[:\\/]/g, '-');
 }
 
-// 기록은 일하는 저장소 기준이다. 스크립트가 사는 곳(플러그인 캐시)이 아니다.
 // 통 안에서는 작업 경로가 /repo 라 폴더 이름이 안 맞는다. 밖에서 정해 준다.
 export const LOG_DIR = process.env.OPS_LOG_DIR
   || join(homedir(), '.claude', 'projects', projectSlug(WORK));
@@ -272,6 +272,8 @@ export function sessions(dir = LOG_DIR, now = Date.now()) {
       idleMs: idle,
       last,
       steps,
+      // 토큰과 환산 금액. 늘어난 부분만 읽으므로 2초마다 불러도 싸다.
+      cost: tally(file),
       // 훅이 적어 둔 것이 먼저다. 기록 훑기는 훅이 안 걸린 창을 위한 뒷자리다.
       asked: hookAsked.get(id) ?? asked,
     });
@@ -290,6 +292,8 @@ export function board(now = Date.now()) {
     now,
     sessions: sess,
     live,
+    // 이 저장소 창들이 쓴 것을 다 더한 값.
+    spend: sess.reduce((a, s) => a + (s.cost?.usd ?? 0), 0),
     repo: repo(),
     // 넘길 게 남았나. Stop 훅이 보는 것과 같은 값이다.
     handoff: (() => { try { return handoffState(); } catch { return null; } })(),
@@ -453,6 +457,8 @@ function selftest() {
   ok('훅이 적어 둔 말을 읽는다', askedByHook(join(HERE, '없는파일.json')).size === 0);
   ok('넘길 게 남았는지도 담는다', bd.handoff === null || typeof bd.handoff.pending === 'boolean',
      JSON.stringify(bd.handoff));
+  ok('쓴 돈도 담는다', typeof bd.spend === 'number' && bd.spend >= 0
+     && bd.sessions.every(s => s.cost && typeof s.cost.usd === 'number'), String(bd.spend));
   // 저장소 전용 값은 이제 안 담는다. 들어오면 판이 다시 이 저장소에 묶인 것이다.
   ok('저장소 전용 값은 안 담는다',
      !('model' in bd) && !('corpus' in bd) && !('service' in bd), Object.keys(bd).join(','));

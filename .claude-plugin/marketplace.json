@@ -8,7 +8,7 @@
     {
       "name": "agent-ops",
       "source": "./",
-      "description": "만드는 쪽과 재는 쪽을 갈라 놓는 ops. 장부 · 넘김 훅 · 창 판."
+      "description": "만드는 쪽과 재는 쪽을 갈라 놓는 ops. 장부 · 넘김 훅 · 창 판 · 판 만드는 법."
     }
   ],
   "description": "만드는 쪽과 재는 쪽을 갈라 놓는 Claude Code ops 도구."

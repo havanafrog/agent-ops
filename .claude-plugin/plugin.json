@@ -1,7 +1,7 @@
 {
   "name": "agent-ops",
-  "version": "0.1.0",
-  "description": "두 Claude 세션을 만드는 쪽과 재는 쪽으로 갈라 일하게 한다. 주장은 장부에 남고, 재는 쪽이 직접 돌려 보고 판정한다. 창들이 지금 뭘 하는지 보는 판도 같이 온다.",
+  "version": "0.2.0",
+  "description": "두 Claude 세션을 만드는 쪽과 재는 쪽으로 갈라 일하게 한다. 주장은 장부에 남고, 재는 쪽이 직접 돌려 보고 판정한다. 창들이 지금 뭘 하는지 보는 판과, 그 판을 만드는 법을 적은 스킬이 같이 온다.",
   "author": {
     "name": "havanafrog"
   },
@@ -13,6 +13,7 @@
     "verification",
     "multi-session",
     "code-review",
-    "dashboard"
+    "dashboard",
+    "ui"
   ]
 }
