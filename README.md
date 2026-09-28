@@ -1,3 +1,6 @@
+> **이 저장소는 [agentsemble](https://github.com/havanafrog/agentsemble) 로 합쳐졌습니다.** 새 설치·업데이트는 그쪽에서 받으세요.
+> **Moved to [agentsemble](https://github.com/havanafrog/agentsemble).** This repo is archived.
+
 # agent-ops
 
 한 Claude 세션이 만들고, 다른 세션이 잽니다.
